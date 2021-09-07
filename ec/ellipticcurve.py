@@ -1,4 +1,5 @@
 import math
+import copy
 
 #Curve25519 = y^2 = x^3 + 48662x^2 + x
 #Coefficients are stored [b, x, x^2, ..., x^n]
@@ -15,19 +16,36 @@ class Point:
 		self.curve = curve
 
 	def __mul__(self, n: int):
-		pass
+		
+		bits = bin(n)[2:][::-1]
+
+		r = copy.copy(self)
+
+		for bit in bits:
+			if bit == "1" and bits.index(bit) != 0:
+				r += r
+			r = self.double()
+
+		return r
+
+	def __rmul__(self, n):
+		return self * n
 
 	def double(self):
-		l = self.curve.tangent()
-		x = s**2 - self.x - b.x
-		y = -1 * self.y + s * (self.x - x)
+		l = self.curve.tangent(self)
+		x = l**2 - 2 * self.x
+		y = l * (self.x - x) - self.y
 		r = Point(x, y, self.curve)
+		return r
 
 	def __neg__(self):
 		n = Point(x, -y)
 		return n
 
 	def __add__(self, b):
+
+		if b == 0:
+			return self
 
 		if self.x == b.x: 
 			if self.y == -b.y:
@@ -59,7 +77,7 @@ class Curve:
 
 		for index in range(len(self.coefficients)):
 
-			y2 += self.coefficients[index] * x ^ index
+			y2 += self.coefficients[index] * x ** index
 
 		return math.sqrt((y2 % self.p)) * sign
 
@@ -97,5 +115,7 @@ def main():
 
 	print(p, q, r)
 
+	print(Point.double(p))
+	
 if __name__ == "__main__":
 	main()
