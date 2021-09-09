@@ -48,14 +48,15 @@ class Point:
 
 		bits = bin(n)[2:][::-1]
 
-		r = copy.copy(self)
+		Q = 0
+		N = copy.copy(self)
 
 		for bit in bits:
-			if bit == "1" and bits.index(bit) != 0:
-				r += r
-			r = self.double()
+			if bit == "1":
+				Q = N + Q
+			N = N.double()
 
-		return r
+		return Q
 
 	def __rmul__(self, n):
 
@@ -66,13 +67,15 @@ class Point:
 
 	def double(self):
 		l = self.curve.tangent(self)
-		x = l**2 - 2 * self.x
-		y = l * (self.x - x) - self.y
+		#x = l**2 - 2 * self.x
+		#y = l * (self.x - x) - self.y
+		x = (l**2 - 2 * self.x) % self.curve.p 
+		y = (l * (self.x - x) - self.y) % self.curve.p  
 		r = Point(x, y, self.curve)
 		return r
 
 	def __neg__(self):
-		n = Point(x, -y)
+		n = Point(self.x, -self.y % self.curve.p, self.curve)
 		return n
 
 	def __add__(self, b):
@@ -87,12 +90,14 @@ class Point:
 				return 0
 			#P+P=2P
 			elif self.y == b.y:
-				return self.double(b)
+				return self.double()
 
 		s = self.curve.secant(self, b)
+		#print(self.x - b.x)
 		x = (s**2 - self.x - b.x) % self.curve.p 
-		y = (-1 * self.y + s * (self.x - x)) % self.curve.p  
+		y = (s * (self.x - x) - self.y) % self.curve.p  
 		r = Point(x, y, self.curve)
+
 		return r
 
 	def __sub__(self, b):
@@ -128,7 +133,7 @@ class Curve:
 
 	def graphPoints(self):
 		points = self.calcValidPoints()
-		#print(points)
+		print(points)
 		xs = [i[0] for i in points]
 		ys = [i[1] for i in points]
 		fig, ax = plt.subplots()
@@ -144,8 +149,8 @@ class Curve:
 
 			y2 += self.coefficients[index] * x ** index
 
-		y = pow(y2, ((self.p+1)//4), self.p)
-
+			#https://crypto.stackexchange.com/questions/20667/modulo-square-roots
+			y = pow(y2, ((self.p+1)//4), self.p)
 
 		if sign == -1:
 			y = self.p - y
@@ -154,12 +159,13 @@ class Curve:
 
 	def tangent(self, a: Point) -> float:
 
-		t = (3 * a.x**2 + self.coefficients[1]) / inv_mod_p((2 * a.y), self.p)
+		t = (3 * a.x**2 + self.coefficients[1]) * inv_mod_p((2 * a.y), self.p)
 		return t
 
 	def secant(self, a: Point, b: Point):
 		try:
-			s = (b.y - a.y) / inv_mod_p((b.x - a.x), self.p)
+			s = (b.y - a.y) * inv_mod_p((b.x - a.x), self.p)
+			#print(s)
 			return s
 		except ZeroDivisionError as e:
 			print("Points cannot be the same.", e)
@@ -194,10 +200,18 @@ def main():
 	print(r)
 	print(ec_curve.valid(r))
 
-	#print(ec_curve.calcValidPoints())
-	ec_curve.graphPoints()
+	l = p + p
+	print(l)
+	print(ec_curve.valid(l))
 
-	print(ec_curve.secant(p, q))
+	m = p * 4
+	print(m)
+	print(ec_curve.valid(m))
+
+	#print(ec_curve.calcValidPoints())
+	#ec_curve.graphPoints()
+
+	#print(ec_curve.secant(p, q))
 
 	# r = p + q
 
