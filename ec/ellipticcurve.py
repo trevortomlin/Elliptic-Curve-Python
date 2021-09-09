@@ -5,9 +5,18 @@ import matplotlib.pyplot as plt
 #Curve25519 = y^2 = x^3 + 48662x^2 + x
 #Coefficients are stored [b, x, x^2, ..., x^n]
 #CURVE_COEFFICIENTS = [0, 1, 48662, 1]
-CURVE_COEFFICIENTS = [1, -1, 0, 1]
+#CURVE_COEFFICIENTS = [1, -1, 0, 1]
+
+#CURVE_COEFFICIENTS = [10, -7, 0, 1]
+CURVE_COEFFICIENTS = [3, -1, 0, 1]
+
+#CURVE_COEFFICIENTS = [7, 0, 0, 1]
 #P = 2^255-19
-P = 97
+
+#P = 487
+P = 127
+
+#P = 2**256 - 2**32 - 2**9 - 2**8 - 2**7 - 2**6 - 2**4 - 1
 
 #https://stackoverflow.com/questions/31074172/elliptic-curve-point-addition-over-a-finite-field-in-python
 def inv_mod_p(x, p):
@@ -97,6 +106,7 @@ class Curve:
 	def __init__(self, coefficients, p):
 		self.coefficients = coefficients
 		self.p = p
+		self.discriminant = 4 * self.coefficients[1]**3 + 27 * self.coefficients[0]**2
 
 	def valid(self, a: Point):
 		try:
@@ -106,17 +116,19 @@ class Curve:
 
 	def calcValidPoints(self):
 
+		# Use baby step method here to improve speed
+
 		validPoints = []
 		
 		for x in range(self.p):
 			for y in range(self.p):
 				if (y ** 2) % self.p == ((x ** 3) + self.coefficients[1] * x + self.coefficients[0]) % self.p:
 					validPoints.append((x,y))
-
 		return validPoints
 
 	def graphPoints(self):
 		points = self.calcValidPoints()
+		#print(points)
 		xs = [i[0] for i in points]
 		ys = [i[1] for i in points]
 		fig, ax = plt.subplots()
@@ -132,7 +144,13 @@ class Curve:
 
 			y2 += self.coefficients[index] * x ** index
 
-		return math.sqrt(y2) * sign
+		y = pow(y2, ((self.p+1)//4), self.p)
+
+
+		if sign == -1:
+			y = self.p - y
+
+		return y
 
 	def tangent(self, a: Point) -> float:
 
@@ -147,20 +165,25 @@ class Curve:
 			print("Points cannot be the same.", e)
 			return 0
 
+	def __str__(self):
+		return "Elliptic Curve defined by y^2 = " + str(self.coefficients[3]) + "x^3 + " + str(self.coefficients[1]) + "x + " + str(self.coefficients[0]) + " in 𝔽" + str(self.p)
+
 def main():
 
 	ec_curve = Curve(CURVE_COEFFICIENTS, P)
+
+	print(ec_curve)
 	
-	x = 1
-	y = ec_curve.evaluate(x, 1)
+	x = 16
+	y = ec_curve.evaluate(x, -1)
 
 	p = Point(x, y, ec_curve)
 
 	print(p)
 	print(ec_curve.valid(p))
 
-	x1 = 3
-	y1 = ec_curve.evaluate(x1, -1)
+	x1 = 41
+	y1 = ec_curve.evaluate(x1, 1)
 
 	q = Point(x1, y1, ec_curve)
 
@@ -174,7 +197,7 @@ def main():
 	#print(ec_curve.calcValidPoints())
 	ec_curve.graphPoints()
 
-	# print(ec_curve.secant(p, q))
+	print(ec_curve.secant(p, q))
 
 	# r = p + q
 
