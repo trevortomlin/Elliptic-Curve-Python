@@ -30,10 +30,46 @@ def inv_mod_p(x, p):
 
 class Point:
 
-	def __init__(self, x, y, curve):
+	def __init__(self, curve):
 
-		self.x, self.y = x, y
 		self.curve = curve
+
+		# if x is not None and y is not None:
+		# 	self.x, self.y = x, y
+
+		# if hex_pt is not None:
+		# 	hex_to_point(hex_pt)
+
+	def from_xy(self, x, y):
+		self.x, self.y = x, y
+
+	def from_x_sign(self, x, sign):
+		pass
+
+	def from_hex(self, hex_pt):
+
+		# Uncompressed Point
+		if len(hex_pt) == (self.curve.keysize // 2) + 2:
+			self.x, self.y = self.hex_to_coords(hex_pt)
+		# Compressed Point
+		elif len(hex_pt) == (self.curve.keysize // 4) + 2:
+			pass
+
+	def point_to_hex(self):
+		#return hex(self.x)[2:].zfill(self.curve.keysize // 2) + hex(self.y)[2:].zfill(self.curve.keysize // 2)
+		return "04" + hex(self.x)[2:].zfill(self.curve.keysize // 4) + hex(self.y)[2:].zfill(self.curve.keysize // 4)
+
+	def point_to_hex_compressed(self):
+		pass
+
+	def hex_to_coords(self, hex_pt):
+		x = int(hex_pt[2:66], 16)
+		y = int(hex_pt[66:], 16)
+		return x,y
+
+
+	def hex_to_coords_compressed(self, hex_pt):
+		pass
 
 	def __truediv__(self, n):
 		raise Exception("Points cannot be divided.")
@@ -108,10 +144,11 @@ class Point:
 
 class Curve:
 
-	def __init__(self, coefficients, p):
+	def __init__(self, coefficients, p, keysize=256):
 		self.coefficients = coefficients
 		self.p = p
 		self.discriminant = 4 * self.coefficients[1]**3 + 27 * self.coefficients[0]**2
+		self.keysize = keysize
 
 	def valid(self, a: Point):
 		try:
@@ -129,6 +166,10 @@ class Curve:
 			for y in range(self.p):
 				if (y ** 2) % self.p == ((x ** 3) + self.coefficients[1] * x + self.coefficients[0]) % self.p:
 					validPoints.append((x,y))
+
+
+		self.numPoints = len(validPoints)
+
 		return validPoints
 
 	def graphPoints(self):
@@ -154,6 +195,7 @@ class Curve:
 
 		if sign == -1:
 			y = self.p - y
+		#y = min(y, self.p-y)
 
 		return y
 
@@ -178,35 +220,59 @@ def main():
 
 	ec_curve = Curve(CURVE_COEFFICIENTS, P)
 
-	print(ec_curve)
+	# print(ec_curve)
 	
-	x = 16
-	y = ec_curve.evaluate(x, -1)
+	# x = 16
+	# y = ec_curve.evaluate(x, -1)
 
-	p = Point(x, y, ec_curve)
+	# p = Point(x, y, ec_curve)
 
-	print(p)
-	print(ec_curve.valid(p))
+	# print(p)
+	# print(ec_curve.valid(p))
 
-	x1 = 41
-	y1 = ec_curve.evaluate(x1, 1)
+	# x1 = 41
+	# y1 = ec_curve.evaluate(x1, 1)
 
-	q = Point(x1, y1, ec_curve)
+	# q = Point(x1, y1, ec_curve)
 
-	print(q)
-	print(ec_curve.valid(q))
+	# print(q)
+	# print(ec_curve.valid(q))
 
-	r = p + q
-	print(r)
-	print(ec_curve.valid(r))
+	# r = p + q
+	# print(r)
+	# print(ec_curve.valid(r))
 
-	l = p + p
+	# l = p + p
+	# print(l)
+	# print(ec_curve.valid(l))
+ 
+	# m = p * 4
+	# print(m)
+	# print(ec_curve.valid(m))
+
+	# ec_curve.calcValidPoints()
+	# print(p.point_to_hex())
+
+	x2 = 100000000000000000000000000025
+	y2 = ec_curve.evaluate(x2, 1)
+
+	v = Point(ec_curve)
+	v.from_xy(x2, y2)
+	print(v)
+	print(ec_curve.valid(v))
+	print(v.point_to_hex())
+
+	l = Point(ec_curve)
+	l.from_hex(v.point_to_hex())
 	print(l)
-	print(ec_curve.valid(l))
 
-	m = p * 4
-	print(m)
-	print(ec_curve.valid(m))
+	#o = Point("040000000000000000000000000000000000000001431e0fae6d7217caa00000190000000000000000000000000000000000000000000000000000000000000057", ec_curve)
+	#print(len(v.point_to_hex()))
+
+	#print(len("0479BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8"))
+
+	#print(int("0x0000000000000000000000000000000000000000000000000000000000000010", 16))
+
 
 	#print(ec_curve.calcValidPoints())
 	#ec_curve.graphPoints()
