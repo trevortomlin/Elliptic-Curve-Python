@@ -34,12 +34,6 @@ class Point:
 
 		self.curve = curve
 
-		# if x is not None and y is not None:
-		# 	self.x, self.y = x, y
-
-		# if hex_pt is not None:
-		# 	hex_to_point(hex_pt)
-
 	def from_xy(self, x, y):
 		self.x, self.y = x, y
 
@@ -49,22 +43,27 @@ class Point:
 	def from_hex(self, hex_pt):
 
 		# Uncompressed Point
-		if len(hex_pt) == (self.curve.keysize // 2) + 2:
+		if len(hex_pt) == (self.curve.keysize // 2) + 4:
 			self.x, self.y = self.hex_to_coords(hex_pt)
 		# Compressed Point
-		elif len(hex_pt) == (self.curve.keysize // 4) + 2:
+		elif len(hex_pt) == (self.curve.keysize // 4) + 4:
 			pass
 
 	def point_to_hex(self):
-		#return hex(self.x)[2:].zfill(self.curve.keysize // 2) + hex(self.y)[2:].zfill(self.curve.keysize // 2)
-		return "04" + hex(self.x)[2:].zfill(self.curve.keysize // 4) + hex(self.y)[2:].zfill(self.curve.keysize // 4)
+		return "0x04" + hex(self.x)[2:].zfill(self.curve.keysize // 4) + hex(self.y)[2:].zfill(self.curve.keysize // 4)
 
 	def point_to_hex_compressed(self):
-		pass
+
+		lsb = self.y & 1
+
+		if lsb == 1:
+			return "0x2" + hex(self.x)[2:]
+		elif lsb == 0:
+			return "0x3" + hex(self.x)[2:]
 
 	def hex_to_coords(self, hex_pt):
-		x = int(hex_pt[2:66], 16)
-		y = int(hex_pt[66:], 16)
+		x = int(hex_pt[4:68], 16)
+		y = int(hex_pt[68:], 16)
 		return x,y
 
 
@@ -103,15 +102,17 @@ class Point:
 
 	def double(self):
 		l = self.curve.tangent(self)
-		#x = l**2 - 2 * self.x
-		#y = l * (self.x - x) - self.y
 		x = (l**2 - 2 * self.x) % self.curve.p 
 		y = (l * (self.x - x) - self.y) % self.curve.p  
-		r = Point(x, y, self.curve)
+		#r = Point(x, y, self.curve)
+		r = Point(self.curve)
+		r.from_xy(x, y)
 		return r
 
 	def __neg__(self):
-		n = Point(self.x, -self.y % self.curve.p, self.curve)
+		#n = Point(self.x, -self.y % self.curve.p, self.curve)
+		n = Point(self.curve)
+		n.from_xy(self.x, -self.y % self.curve.p)
 		return n
 
 	def __add__(self, b):
@@ -129,10 +130,10 @@ class Point:
 				return self.double()
 
 		s = self.curve.secant(self, b)
-		#print(self.x - b.x)
 		x = (s**2 - self.x - b.x) % self.curve.p 
 		y = (s * (self.x - x) - self.y) % self.curve.p  
-		r = Point(x, y, self.curve)
+		r = Point(self.curve)
+		r.from_xy(x, y)
 
 		return r
 
@@ -195,7 +196,7 @@ class Curve:
 
 		if sign == -1:
 			y = self.p - y
-		#y = min(y, self.p-y)
+			#y = min(y, self.p-y)
 
 		return y
 
@@ -207,7 +208,6 @@ class Curve:
 	def secant(self, a: Point, b: Point):
 		try:
 			s = (b.y - a.y) * inv_mod_p((b.x - a.x), self.p)
-			#print(s)
 			return s
 		except ZeroDivisionError as e:
 			print("Points cannot be the same.", e)
@@ -222,13 +222,14 @@ def main():
 
 	# print(ec_curve)
 	
-	# x = 16
-	# y = ec_curve.evaluate(x, -1)
+	x = 16
+	y = ec_curve.evaluate(x, -1)
 
-	# p = Point(x, y, ec_curve)
+	p = Point(ec_curve)
+	p.from_xy(x, y)
 
-	# print(p)
-	# print(ec_curve.valid(p))
+	print(p)
+	print(ec_curve.valid(p))
 
 	# x1 = 41
 	# y1 = ec_curve.evaluate(x1, 1)
@@ -250,7 +251,7 @@ def main():
 	# print(m)
 	# print(ec_curve.valid(m))
 
-	# ec_curve.calcValidPoints()
+	#ec_curve.calcValidPoints()
 	# print(p.point_to_hex())
 
 	x2 = 100000000000000000000000000025
@@ -265,6 +266,8 @@ def main():
 	l = Point(ec_curve)
 	l.from_hex(v.point_to_hex())
 	print(l)
+
+	print(l.point_to_hex_compressed())
 
 	#o = Point("040000000000000000000000000000000000000001431e0fae6d7217caa00000190000000000000000000000000000000000000000000000000000000000000057", ec_curve)
 	#print(len(v.point_to_hex()))
