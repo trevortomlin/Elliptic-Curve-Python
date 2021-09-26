@@ -42,12 +42,17 @@ class Point:
 
 	def from_hex(self, hex_pt):
 
+		print(len(hex_pt))
+		print((self.curve.keysize // 4) + 4)
+
 		# Uncompressed Point
 		if len(hex_pt) == (self.curve.keysize // 2) + 4:
 			self.x, self.y = self.hex_to_coords(hex_pt)
 		# Compressed Point
 		elif len(hex_pt) == (self.curve.keysize // 4) + 4:
-			pass
+			self.x, self.y = self.hex_to_coords_compressed(hex_pt)
+		else:
+			raise Exception("Not valid hex point.")
 
 	def point_to_hex(self):
 		return "0x04" + hex(self.x)[2:].zfill(self.curve.keysize // 4) + hex(self.y)[2:].zfill(self.curve.keysize // 4)
@@ -57,18 +62,26 @@ class Point:
 		lsb = self.y & 1
 
 		if lsb == 1:
-			return "0x2" + hex(self.x)[2:]
+			return "0x02" + hex(self.x)[2:].zfill(self.curve.keysize // 4)
 		elif lsb == 0:
-			return "0x3" + hex(self.x)[2:]
+			return "0x03" + hex(self.x)[2:].zfill(self.curve.keysize // 4)
 
 	def hex_to_coords(self, hex_pt):
 		x = int(hex_pt[4:68], 16)
 		y = int(hex_pt[68:], 16)
 		return x,y
 
-
 	def hex_to_coords_compressed(self, hex_pt):
-		pass
+		byte = hex_pt[:4]
+		lsb = 0 
+		if byte == "0x02":
+			lsb = 1
+		elif byte == "0x03":
+			lsb = 0
+
+		x = int(hex_pt[4:], 16)
+		y = self.curve.evaluate(int(hex_pt[4:], 16), lsb)
+		return x,y
 
 	def __truediv__(self, n):
 		raise Exception("Points cannot be divided.")
@@ -194,7 +207,7 @@ class Curve:
 			#https://crypto.stackexchange.com/questions/20667/modulo-square-roots
 			y = pow(y2, ((self.p+1)//4), self.p)
 
-		if sign == -1:
+		if sign == 0:
 			y = self.p - y
 			#y = min(y, self.p-y)
 
@@ -268,6 +281,14 @@ def main():
 	print(l)
 
 	print(l.point_to_hex_compressed())
+
+	l.hex_to_coords_compressed("0x21431e0fae6d7217caa0000019")
+
+	print("LEN:", len("0x20000000000000000000000000000000000000001431e0fae6d7217caa0000019"))
+
+	m = Point(ec_curve)
+	m.from_hex("0x020000000000000000000000000000000000000001431e0fae6d7217caa0000019")
+	print(m)
 
 	#o = Point("040000000000000000000000000000000000000001431e0fae6d7217caa00000190000000000000000000000000000000000000000000000000000000000000057", ec_curve)
 	#print(len(v.point_to_hex()))
