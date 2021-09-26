@@ -2,22 +2,6 @@ import math
 import copy
 import matplotlib.pyplot as plt
 
-#Curve25519 = y^2 = x^3 + 48662x^2 + x
-#Coefficients are stored [b, x, x^2, ..., x^n]
-#CURVE_COEFFICIENTS = [0, 1, 48662, 1]
-#CURVE_COEFFICIENTS = [1, -1, 0, 1]
-
-#CURVE_COEFFICIENTS = [10, -7, 0, 1]
-CURVE_COEFFICIENTS = [3, -1, 0, 1]
-
-#CURVE_COEFFICIENTS = [7, 0, 0, 1]
-#P = 2^255-19
-
-#P = 487
-P = 127
-
-#P = 2**256 - 2**32 - 2**9 - 2**8 - 2**7 - 2**6 - 2**4 - 1
-
 #https://stackoverflow.com/questions/31074172/elliptic-curve-point-addition-over-a-finite-field-in-python
 def inv_mod_p(x, p):
     """
@@ -29,19 +13,39 @@ def inv_mod_p(x, p):
     return pow(x, p-2, p)
 
 class Point:
+	"""
+	Description:
+		Describes a point on a finite curve.
+
+	Functions:
+		from_xy()
+		from_hex()
+		point_to_hex() -> str
+		point_to_hex_compressed() -> str
+		hex_to_coords() -> (x, y)
+		hex_to_coords_compressed() -> (x, y)
+		double() -> Point
+
+	Variables:
+		curve
+		x
+		y
+
+	"""
 
 	def __init__(self, curve):
-
 		self.curve = curve
 
 	def from_xy(self, x, y):
+		"""
+		Creates a point from x and y values.
+		"""
 		self.x, self.y = x, y
 
-	def from_x_sign(self, x, sign):
-		pass
-
 	def from_hex(self, hex_pt):
-
+		"""
+		Creates point from uncompressed or compressed hex value.
+		"""
 		print(len(hex_pt))
 		print((self.curve.keysize // 4) + 4)
 
@@ -55,10 +59,15 @@ class Point:
 			raise Exception("Not valid hex point.")
 
 	def point_to_hex(self):
+		"""
+		Returns the representation of self as an uncompressed point.
+		"""
 		return "0x04" + hex(self.x)[2:].zfill(self.curve.keysize // 4) + hex(self.y)[2:].zfill(self.curve.keysize // 4)
 
 	def point_to_hex_compressed(self):
-
+		"""
+		Returns the representation of self as a compressed point.
+		"""
 		lsb = self.y & 1
 
 		if lsb == 1:
@@ -67,11 +76,17 @@ class Point:
 			return "0x03" + hex(self.x)[2:].zfill(self.curve.keysize // 4)
 
 	def hex_to_coords(self, hex_pt):
+		"""
+		Converts uncompressed hex value to xy points.
+		"""
 		x = int(hex_pt[4:68], 16)
 		y = int(hex_pt[68:], 16)
 		return x,y
 
 	def hex_to_coords_compressed(self, hex_pt):
+		"""
+		Converts compressed hex value to xy points.
+		"""
 		byte = hex_pt[:4]
 		lsb = 0 
 		if byte == "0x02":
@@ -90,7 +105,6 @@ class Point:
 		raise Exception("Points cannot be floor divided.")
 
 	def __mul__(self, n: int):
-		
 		if type(n) is Point:
 			raise Exception("Points cannot be multiplied.")
 
@@ -107,29 +121,28 @@ class Point:
 		return Q
 
 	def __rmul__(self, n):
-
 		if type(n) is Point:
 			raise Exception("Points cannot be multiplied.")
 
 		return self * n
 
 	def double(self):
+		"""
+		Returns point that is double self.
+		"""
 		l = self.curve.tangent(self)
 		x = (l**2 - 2 * self.x) % self.curve.p 
 		y = (l * (self.x - x) - self.y) % self.curve.p  
-		#r = Point(x, y, self.curve)
 		r = Point(self.curve)
 		r.from_xy(x, y)
 		return r
 
 	def __neg__(self):
-		#n = Point(self.x, -self.y % self.curve.p, self.curve)
 		n = Point(self.curve)
 		n.from_xy(self.x, -self.y % self.curve.p)
 		return n
 
 	def __add__(self, b):
-
 		#P+O=P
 		if b == 0:
 			return self
@@ -157,23 +170,50 @@ class Point:
 		return "(" + str(self.x) + ", " + str(self.y) + ")"
 
 class Curve:
+	"""
+	Description:
+		Describes a Curve over Finite Field P with the coefficients stored as [b, x, 0, x^3]
+	
+	Functions:
+		valid() -> bool
+		calcValidPoint() -> list of points
+		graphPoints() -> float
+		evaluate(x, sign) -> float
+		tangent(a) -> float
+		secant(a, b) -> float
+
+	Variables:
+		coefficients
+		p
+		discriminant
+		keysize
+		numPoints
+	"""
 
 	def __init__(self, coefficients, p, keysize=256):
 		self.coefficients = coefficients
 		self.p = p
-		self.discriminant = 4 * self.coefficients[1]**3 + 27 * self.coefficients[0]**2
 		self.keysize = keysize
 
+		# Can be used later to check for validity of curve.
+		self.discriminant = 4 * self.coefficients[1]**3 + 27 * self.coefficients[0]**2
+
 	def valid(self, a: Point):
+		"""
+		Determines whether a given point is valid on this curve.
+		"""
+
 		try:
 			return a.y**2 % self.p == (pow(a.x, 3, self.p) + self.coefficients[1] * a.x + self.coefficients[0]) % self.p
 		except TypeError:
 			return False
 
 	def calcValidPoints(self):
+		"""
+		Calculates the number of points on the curve and stores each point in a list.
+		"""
 
 		# Use baby step method here to improve speed
-
 		validPoints = []
 		
 		for x in range(self.p):
@@ -181,12 +221,15 @@ class Curve:
 				if (y ** 2) % self.p == ((x ** 3) + self.coefficients[1] * x + self.coefficients[0]) % self.p:
 					validPoints.append((x,y))
 
-
 		self.numPoints = len(validPoints)
 
 		return validPoints
 
 	def graphPoints(self):
+		"""
+		Graphs the points on the curve using Matplotlib.
+		"""
+
 		points = self.calcValidPoints()
 		print(points)
 		xs = [i[0] for i in points]
@@ -197,6 +240,9 @@ class Curve:
 		plt.show()
 
 	def evaluate(self, x, sign: int) -> float:
+		"""
+		Gets the y value from a given x value from the curve.
+		"""
 
 		y2 = 0
 
@@ -209,16 +255,21 @@ class Curve:
 
 		if sign == 0:
 			y = self.p - y
-			#y = min(y, self.p-y)
 
 		return y
 
 	def tangent(self, a: Point) -> float:
+		"""
+		Returns the tangent of a point.
+		"""
 
 		t = (3 * a.x**2 + self.coefficients[1]) * inv_mod_p((2 * a.y), self.p)
 		return t
 
 	def secant(self, a: Point, b: Point):
+		"""
+		Returns the secant of a point.
+		"""
 		try:
 			s = (b.y - a.y) * inv_mod_p((b.x - a.x), self.p)
 			return s
@@ -228,86 +279,3 @@ class Curve:
 
 	def __str__(self):
 		return "Elliptic Curve defined by y^2 = " + str(self.coefficients[3]) + "x^3 + " + str(self.coefficients[1]) + "x + " + str(self.coefficients[0]) + " in 𝔽" + str(self.p)
-
-def main():
-
-	ec_curve = Curve(CURVE_COEFFICIENTS, P)
-
-	# print(ec_curve)
-	
-	x = 16
-	y = ec_curve.evaluate(x, -1)
-
-	p = Point(ec_curve)
-	p.from_xy(x, y)
-
-	print(p)
-	print(ec_curve.valid(p))
-
-	# x1 = 41
-	# y1 = ec_curve.evaluate(x1, 1)
-
-	# q = Point(x1, y1, ec_curve)
-
-	# print(q)
-	# print(ec_curve.valid(q))
-
-	# r = p + q
-	# print(r)
-	# print(ec_curve.valid(r))
-
-	# l = p + p
-	# print(l)
-	# print(ec_curve.valid(l))
- 
-	# m = p * 4
-	# print(m)
-	# print(ec_curve.valid(m))
-
-	#ec_curve.calcValidPoints()
-	# print(p.point_to_hex())
-
-	x2 = 100000000000000000000000000025
-	y2 = ec_curve.evaluate(x2, 1)
-
-	v = Point(ec_curve)
-	v.from_xy(x2, y2)
-	print(v)
-	print(ec_curve.valid(v))
-	print(v.point_to_hex())
-
-	l = Point(ec_curve)
-	l.from_hex(v.point_to_hex())
-	print(l)
-
-	print(l.point_to_hex_compressed())
-
-	l.hex_to_coords_compressed("0x21431e0fae6d7217caa0000019")
-
-	print("LEN:", len("0x20000000000000000000000000000000000000001431e0fae6d7217caa0000019"))
-
-	m = Point(ec_curve)
-	m.from_hex("0x020000000000000000000000000000000000000001431e0fae6d7217caa0000019")
-	print(m)
-
-	#o = Point("040000000000000000000000000000000000000001431e0fae6d7217caa00000190000000000000000000000000000000000000000000000000000000000000057", ec_curve)
-	#print(len(v.point_to_hex()))
-
-	#print(len("0479BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8"))
-
-	#print(int("0x0000000000000000000000000000000000000000000000000000000000000010", 16))
-
-
-	#print(ec_curve.calcValidPoints())
-	#ec_curve.graphPoints()
-
-	#print(ec_curve.secant(p, q))
-
-	# r = p + q
-
-	# print(p, q, r)
-
-	# print(Point.double(p))
-
-if __name__ == "__main__":
-	main()
