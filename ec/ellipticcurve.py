@@ -98,6 +98,10 @@ class Point:
 		y = self.curve.evaluate(int(hex_pt[4:], 16), lsb)
 		return x,y
 
+	def __eq__(self, n):
+		if isinstance(n, Point):
+			return self.x == n.x and self.y == n.y
+			
 	def __truediv__(self, n):
 		raise Exception("Points cannot be divided.")
 
